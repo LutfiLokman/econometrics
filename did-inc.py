@@ -1,14 +1,40 @@
-import wooldridge as woo
+import numpy as np
 import pandas as pd
-import statsmodels.formula.api as smf
+import plotly.express as px
+import plotly.graph_objects as go
+import wooldridge as woo
+from statsmodels.formula.api import ols
 
-kielmc = woo.dataWoo('kielmc')
+df = woo.dataWoo("kielmc")
 
-y78 = kielmc['year'] == 1978
-reg78 = smf.ols('rprice ~ nearinc', data=kielmc, subset=y78)
-results78 = reg78.fit()
-results78.summary()
+df["rprice"] = df["rprice"] / 1000
 
-kielmc
+mdl78 = ols("rprice ~ rooms + area", data=df).fit()
 
+mdl78.summary()
 
+# Surface visualization
+x_surf, y_surf = np.meshgrid(
+    np.linspace(df["rooms"].min(), df["rooms"].max(), 100),
+    np.linspace(df["area"].min(), df["area"].max(), 100),
+)
+
+onlyX = pd.DataFrame({"rooms": x_surf.ravel(), "area": y_surf.ravel()})
+fittedY = np.array(mdl78.predict(exog=onlyX))
+fittedY = fittedY.reshape(x_surf.shape)
+
+fig = px.scatter_3d(
+    x=df["rooms"],
+    y=df["area"],
+    z=df["rprice"],
+    color=df["rooms"],
+    color_continuous_scale="Viridis",
+    labels={"x": "rooms", "y": "area", "z": "rprice"},
+    title="Predicted House Prices",
+    template="plotly_dark",
+)
+
+fig.update_traces(marker=dict(size=6))
+fig.add_traces(go.Surface(z=fittedY, x=x_surf, y=y_surf, opacity=0.5))
+
+fig.show()
